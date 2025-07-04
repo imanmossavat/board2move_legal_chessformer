@@ -4,6 +4,36 @@ from torch.utils.data import IterableDataset
 from typing import List, Tuple, Generator
 
 from tokenizer import tokenize_board_uniform, square_name_to_index  # make sure this is imported
+from random import shuffle
+from collections import deque
+
+class BufferedShuffleDataset(IterableDataset):
+    def __init__(self, dataset, buffer_size=5000):
+        self.dataset = dataset
+        self.buffer_size = buffer_size
+
+    def __iter__(self):
+        buffer = deque()
+        iterator = iter(self.dataset)
+
+        try:
+            for _ in range(self.buffer_size):
+                buffer.append(next(iterator))
+        except StopIteration:
+            pass
+
+        while buffer:
+            shuffle_buffer = list(buffer)
+            shuffle(shuffle_buffer)
+            for sample in shuffle_buffer:
+                yield sample
+
+            try:
+                for _ in range(self.buffer_size):
+                    buffer.append(next(iterator))
+                    buffer.popleft()
+            except StopIteration:
+                break
 
 class ChessMoveDataset(IterableDataset):
     def __init__(self, pgn_file_path: str):

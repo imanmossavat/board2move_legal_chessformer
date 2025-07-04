@@ -20,3 +20,7 @@ venv/
 # Model or checkpoint files (optional)
 *.pt
 *.ckpt
+*.pth
+
+# tensorboard
+runs/

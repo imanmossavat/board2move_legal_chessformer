@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class MinimalChessTransformer(nn.Module):
-    def __init__(self, input_dim=8, hidden_dim=64, num_layers=2, num_heads=4):
+    def __init__(self, input_dim=8, hidden_dim=128, num_layers=3, num_heads=8):
         super().__init__()
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
