@@ -3,59 +3,81 @@ from torch.utils.data import DataLoader
 from dataset import ChessMoveDataset, BufferedShuffleDataset
 from model import MinimalChessTransformer
 import torch.nn.functional as F
-from torch.utils.tensorboard import SummaryWriter
 import os
-def train_loop(model, dataloader, optimizer, device, writer, epoch, save_every=5000):
+import csv
+from datetime import datetime
+
+
+def train_loop(model, dataloader, optimizer, device, csv_writer, epoch, save_every=5000, data_dir=None):
     model.train()
     total_loss = 0
-    for batch_idx, (board_tensor, legal_mask, move_from_index) in enumerate(dataloader):
+    criterion = torch.nn.CrossEntropyLoss()
+
+    checkpoints_dir = os.path.join(data_dir, "checkpoints")
+    os.makedirs(checkpoints_dir, exist_ok=True)
+
+    for batch_idx, (board_tensor, target_index) in enumerate(dataloader):
         board_tensor = board_tensor.to(device)
-        legal_mask = legal_mask.to(device)
-        move_from_index = move_from_index.to(device)
+        target_index = target_index.to(device)
 
         optimizer.zero_grad()
-        logits, _ = model(board_tensor, legal_mask)
-        loss = F.cross_entropy(logits, move_from_index)
+        logits = model(board_tensor)
+        loss = criterion(logits, target_index)
         loss.backward()
         optimizer.step()
 
         total_loss += loss.item()
-
-        # Logging
         global_step = epoch * 100000 + batch_idx
-        writer.add_scalar("Loss/train", loss.item(), global_step)
+
+        csv_writer.writerow([global_step, epoch, batch_idx, loss.item()])
 
         if batch_idx % 100 == 0:
             print(f"Epoch {epoch}, Batch {batch_idx}, Loss: {loss.item():.4f}")
 
-        # Save model checkpoint every N batches
         if batch_idx > 0 and batch_idx % save_every == 0:
-            ckpt_path = f"checkpoints/model_epoch{epoch}_batch{batch_idx}.pth"
-            os.makedirs("checkpoints", exist_ok=True)
+            ckpt_path = os.path.join(checkpoints_dir, f"model_epoch{epoch}_batch{batch_idx}.pth")
             torch.save(model.state_dict(), ckpt_path)
             print(f"Saved checkpoint to: {ckpt_path}")
 
+
 def main():
+    NEPOCHS= 1
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
     pgn_path = r"C:\Users\imanm\Downloads\lichess_elite_2025-02\lichess_elite_2025-02.pgn"
-    dataset = BufferedShuffleDataset(ChessMoveDataset(pgn_path), buffer_size=10000)
-    dataloader = DataLoader(dataset, batch_size=32, shuffle=False, num_workers=4)
+    data_dir = os.path.join(os.path.dirname(pgn_path), "data")
 
-    model = MinimalChessTransformer()
-    model.to(device)
+    print(f'data is saved to: {data_dir}')
+
+    dataset = BufferedShuffleDataset(ChessMoveDataset(pgn_path), buffer_size=10000)
+    num_classes = len(dataset.dataset.uci_to_index)
+
+    dataloader = DataLoader(dataset, batch_size=32, shuffle=False, num_workers=0)
+
+    model = MinimalChessTransformer(num_classes=num_classes, device=device)
+    model.to(model.device)
+    print(model)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=5e-5)
 
-    writer = SummaryWriter(log_dir="runs/chess_transformer")
+    # Logs folder inside data folder next to PGN
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_dir = os.path.join(data_dir, f"logs_{timestamp}")
+    os.makedirs(log_dir, exist_ok=True)
+    csv_path = os.path.join(log_dir, "training_loss.csv")
 
-    for epoch in range(1, 6):
-        print(f"Epoch {epoch}")
-        train_loop(model, dataloader, optimizer, device, writer, epoch)
+    with open(csv_path, mode='w', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+        csv_writer.writerow(["global_step", "epoch", "batch_idx", "loss"])
 
-    torch.save(model.state_dict(), "minimal_transformer_final.pth")
-    writer.close()
+        for epoch in range(1, NEPOCHS+1):
+            print(f"Epoch {epoch}")
+            train_loop(model, dataloader, optimizer, device, csv_writer, epoch, data_dir=data_dir)
+
+    final_path = os.path.join(data_dir, "minimal_transformer_final.pth")
+    torch.save(model.state_dict(), final_path)
+    print(f"Saved final model to: {final_path}")
 
 if __name__ == "__main__":
     main()

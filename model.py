@@ -1,22 +1,23 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from positional_encoding import get_or_generate_encoding
 
 class MinimalChessTransformer(nn.Module):
-    def __init__(self, input_dim=13, hidden_dim=128, num_layers=3, num_heads=8, num_classes=4672, device= 'cuda'):
+    def __init__(self, input_dim=13, hidden_dim=32, num_layers=1, num_heads=2, num_classes=4672, device= 'cuda'):
         super().__init__()
-        self.embedding = nn.Linear(input_dim, hidden_dim)
-        self.file_embed = nn.Embedding(8, hidden_dim)
-        self.rank_embed = nn.Embedding(8, hidden_dim)
         self.device= device
 
-        files = torch.arange(8).repeat(8).to(self.device)     # 0–7, repeated by rank
-        ranks = torch.arange(8).repeat_interleave(8).to(self.device)  # 0–7, each 8 times
+        # Linear projection from input features to hidden_dim
+        self.embedding = nn.Linear(input_dim, hidden_dim)
 
-        file_emb = self.file_embed(files)  # (64, hidden_dim)
-        rank_emb = self.rank_embed(ranks)  # (64, hidden_dim)
+        # Non-trainable positional encoding stored as buffer
+        # This tensor is part of the model's state (non-trainable), automatically moves with .to(device),
+        # and is included in state_dict() for saving/loading.
+        encoding = get_or_generate_encoding(d_model=hidden_dim, board_size=8)
+        self.register_buffer("positional_encoding", encoding)
 
-        self.positional_encoding = file_emb + rank_emb  # (64, hidden_dim)
+        
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=hidden_dim,
             nhead=num_heads,
@@ -34,13 +35,3 @@ class MinimalChessTransformer(nn.Module):
         x = x.mean(dim=1)  # simple mean pooling over squares
         logits = self.classifier(x)  # (batch_size, num_classes)
         return logits
-
-# Example loss:
-
-def compute_loss(probs, target_index):
-    """
-    Cross entropy loss given masked probabilities and target index.
-    """
-    target_prob = probs[target_index]
-    loss = -torch.log(target_prob + 1e-9)  # avoid log(0)
-    return loss
