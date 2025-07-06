@@ -8,7 +8,7 @@ import csv
 from datetime import datetime
 
 
-def train_loop(model, dataloader, optimizer, device, csv_writer, epoch, save_every=5000, data_dir=None):
+def train_loop(model, dataloader, optimizer, device, csv_writer, epoch,global_step, save_every=5000, data_dir=None):
     model.train()
     total_loss = 0
     criterion = torch.nn.CrossEntropyLoss()
@@ -27,7 +27,7 @@ def train_loop(model, dataloader, optimizer, device, csv_writer, epoch, save_eve
         optimizer.step()
 
         total_loss += loss.item()
-        global_step = epoch * 100000 + batch_idx
+        global_step += 1  # increment by 1 per batch
 
         csv_writer.writerow([global_step, epoch, batch_idx, loss.item()])
 
@@ -70,10 +70,17 @@ def main():
     with open(csv_path, mode='w', newline='') as csvfile:
         csv_writer = csv.writer(csvfile)
         csv_writer.writerow(["global_step", "epoch", "batch_idx", "loss"])
-
+        global_step= 0
         for epoch in range(1, NEPOCHS+1):
             print(f"Epoch {epoch}")
-            train_loop(model, dataloader, optimizer, device, csv_writer, epoch, data_dir=data_dir)
+            train_loop(model=model, 
+                       dataloader=dataloader, 
+                       optimizer=optimizer, 
+                       device=device, 
+                       csv_writer=csv_writer, 
+                       epoch=epoch, 
+                       global_step= global_step, 
+                       data_dir=data_dir)
 
     final_path = os.path.join(data_dir, "minimal_transformer_final.pth")
     torch.save(model.state_dict(), final_path)
