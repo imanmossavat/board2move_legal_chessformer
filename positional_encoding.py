@@ -89,12 +89,20 @@ def get_or_generate_encoding(
         board_size=8, 
         path="data/positional_encoding/pos_enc.json"):
     
+    expected_shape = (board_size * board_size, d_model)
+
     if path and os.path.exists(path):
-        return load_positional_encoding_from_json(path)
+        encoding = load_positional_encoding_from_json(path)
+        if encoding.shape == expected_shape:
+            return encoding
+        else:
+            print(f"Shape mismatch: expected {expected_shape}, got {encoding.shape}. Regenerating.")
+
     encoding = generate_2d_sinusoidal_encoding(d_model, board_size)
     if path:
         save_positional_encoding_to_json(encoding, path)
     return encoding
+
 
 
 def plot_positional_encoding(tensor, unified_color_scale=True, d_model=32):

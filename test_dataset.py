@@ -39,33 +39,48 @@ class TestChessMoveDataset(unittest.TestCase):
         self.assertIsInstance(sample, tuple)
         self.assertEqual(len(sample), 3)
 
-        board_tensor, legal_mask, move_from = sample
+        board_tensor, target_distribution, actual_uci = sample
 
         self.assertIsInstance(board_tensor, torch.Tensor)
-        self.assertEqual(board_tensor.shape[1], 8)  # Shape: [X, 8]
-        self.assertIsInstance(legal_mask, torch.Tensor)
-        self.assertEqual(legal_mask.shape, (64,))
-        self.assertIsInstance(move_from, int)
-        self.assertTrue(0 <= move_from < 64)
-        self.assertEqual(legal_mask[move_from].item(), 1.0)  # move_from must be legal
+        self.assertEqual(board_tensor.shape[0], 64)  # 64 squares
+        self.assertEqual(board_tensor.shape[1], 13)  # updated channel count
+
+        self.assertIsInstance(target_distribution, torch.Tensor)
+        self.assertEqual(target_distribution.shape[0], len(dataset.uci_to_index))
+        self.assertAlmostEqual(target_distribution.sum().item(), 1.0, places=5)
+        self.assertTrue((target_distribution >= 0).all().item())  # probs non-negative
+
+        self.assertIsInstance(actual_uci, str)
+        self.assertIn(actual_uci, dataset.uci_to_index)
+
+        # Check that the probability for actual move is highest or close to (1 - epsilon)
+        actual_idx = dataset.uci_to_index[actual_uci]
+        self.assertGreater(target_distribution[actual_idx].item(), 1.0 - dataset.epsilon)
 
     def test_dataset_yields_all_moves(self):
         dataset = ChessMoveDataset(self.test_pgn.name)
         samples = list(dataset)
-        self.assertEqual(len(samples), 6)  # 6 half-moves (plies)
+        self.assertEqual(len(samples), 6)  # 6 plies
 
     def test_correct_next_move_square(self):
-        from tokenizer import tokenize_board_uniform  # Ensure consistent encoding
+        from tokenizer import tokenize_board_uniform
 
         dataset = ChessMoveDataset(self.test_pgn.name)
         with open(self.test_pgn.name, 'r') as f:
             game = chess.pgn.read_game(f)
 
         board = game.board()
-        for (board_tensor, _, move_from), move in zip(dataset, game.mainline_moves()):
+        for (board_tensor, target_distribution, actual_uci), move in zip(dataset, game.mainline_moves()):
             expected_tensor = tokenize_board_uniform(board)
             self.assertTrue(torch.equal(board_tensor, expected_tensor))
-            self.assertEqual(move_from, move.from_square)
+
+            # actual_uci string should match move.uci()
+            self.assertEqual(actual_uci, move.uci())
+
+            # Target distribution should put most weight on actual move index
+            actual_idx = dataset.uci_to_index[actual_uci]
+            self.assertGreater(target_distribution[actual_idx].item(), 1.0 - dataset.epsilon)
+
             board.push(move)
 
     def test_multiple_games(self):
@@ -94,19 +109,24 @@ class TestChessMoveDataset(unittest.TestCase):
         multi_pgn.close()
         dataset = ChessMoveDataset(multi_pgn.name)
         samples = list(dataset)
-        self.assertEqual(len(samples), 8)
+        self.assertEqual(len(samples), 8)  # total moves from both games
         os.unlink(multi_pgn.name)
 
     def test_dataloader_integration(self):
         dataset = ChessMoveDataset(self.test_pgn.name)
         loader = DataLoader(dataset, batch_size=2)
 
-        board_batch, mask_batch, from_batch = next(iter(loader))
+        board_batch, target_batch, actual_uci_batch = next(iter(loader))
 
         self.assertEqual(board_batch.shape[0], 2)
-        self.assertEqual(mask_batch.shape, (2, 64))
-        self.assertEqual(from_batch.shape, (2,))
-        self.assertTrue(isinstance(from_batch[0].item(), int))
+        self.assertEqual(board_batch.shape[1], 64)
+        self.assertEqual(board_batch.shape[2], 13)  # batch x squares x channels
+
+        self.assertEqual(target_batch.shape[0], 2)
+        self.assertEqual(target_batch.shape[1], len(dataset.uci_to_index))
+
+        self.assertEqual(len(actual_uci_batch), 2)
+        self.assertIsInstance(actual_uci_batch[0], str)
 
     def test_empty_pgn_file(self):
         empty_pgn = tempfile.NamedTemporaryFile(delete=False, suffix=".pgn")
@@ -121,10 +141,10 @@ class TestChessMoveDataset(unittest.TestCase):
         dataset1 = list(ChessMoveDataset(self.test_pgn.name))
         dataset2 = list(ChessMoveDataset(self.test_pgn.name))
 
-        for (b1, l1, m1), (b2, l2, m2) in zip(dataset1, dataset2):
+        for (b1, t1, u1), (b2, t2, u2) in zip(dataset1, dataset2):
             self.assertTrue(torch.equal(b1, b2))
-            self.assertTrue(torch.equal(l1, l2))
-            self.assertEqual(m1, m2)
+            self.assertTrue(torch.equal(t1, t2))
+            self.assertEqual(u1, u2)
 
 if __name__ == '__main__':
     unittest.main()

@@ -81,7 +81,7 @@ def main():
     dataset = BufferedShuffleDataset(ChessMoveDataset(pgn_path, epsilon= epsilon), buffer_size=10000)
     num_classes = len(dataset.dataset.uci_to_index)
 
-    dataloader = DataLoader(dataset, batch_size=32, shuffle=False, num_workers=0)
+    dataloader = DataLoader(dataset, batch_size=128, shuffle=False, num_workers=8)
 
     model = MinimalChessTransformer(num_classes=num_classes, device=device)
     model.to(model.device)
