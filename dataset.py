@@ -10,7 +10,7 @@ from collections import deque
 
 
 class BufferedShuffleDataset(IterableDataset):
-    def __init__(self, dataset, buffer_size=5000):
+    def __init__(self, dataset, buffer_size=1000):
         self.dataset = dataset
         self.buffer_size = buffer_size
 
