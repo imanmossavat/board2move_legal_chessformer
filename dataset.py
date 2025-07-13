@@ -14,31 +14,30 @@ class BufferedShuffleDataset(IterableDataset):
         self.dataset = dataset
         self.buffer_size = buffer_size
 
-
     def __iter__(self):
         buffer = deque()
         iterator = iter(self.dataset)
 
+        # Initial fill
         try:
             for _ in range(self.buffer_size):
                 buffer.append(next(iterator))
         except StopIteration:
             print("[BufferedShuffleDataset] Reached end of dataset while filling buffer")
-            pass
 
-
+        # Continuous yield + replace
         while buffer:
-            shuffle_buffer = list(buffer)
-            shuffle(shuffle_buffer)
-            for sample in shuffle_buffer:
-                yield sample
+            idx = torch.randint(0, len(buffer), (1,)).item()
+            sample = buffer[idx]
+            yield sample
 
             try:
-                for _ in range(self.buffer_size):
-                    buffer.append(next(iterator))
-                    buffer.popleft()
+                new_sample = next(iterator)
+                buffer[idx] = new_sample  # replace the one we yielded
             except StopIteration:
-                break
+                # No more data, remove the one we yielded
+                del buffer[idx]
+
 
 class ChessMoveDataset(IterableDataset):
     def __init__(self, pgn_file_path: str, epsilon: float = 0.1):
