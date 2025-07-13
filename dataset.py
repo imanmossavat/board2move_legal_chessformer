@@ -1,7 +1,7 @@
 import torch
 import chess.pgn
 from torch.utils.data import IterableDataset
-from typing import List, Tuple, Generator
+from typing import Tuple, Generator
 from move_vocab_builder import build_move_vocab
 from tokenizer import tokenize_board_uniform  # make sure this is imported
 from random import shuffle
