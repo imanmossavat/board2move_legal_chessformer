@@ -77,28 +77,3 @@ def square_name_to_file_rank(square: str) -> Tuple[int, int]:
 def fen2board(fen: str) -> chess.Board:
     board = chess.Board(fen)
     return board
-
-
-# def build_move_vocab():
-#     uci_to_index = {}
-#     index_to_uci = {}
-#     index = 0
-
-#     for from_square in chess.SQUARES:
-#         for to_square in chess.SQUARES:
-#             move = chess.Move(from_square, to_square)
-#             uci = move.uci()
-#             uci_to_index[uci] = index
-#             index_to_uci[index] = uci
-#             index += 1
-
-#             # Add promotions
-#             if chess.square_rank(to_square) in [0, 7]:
-#                 for promo in [chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT]:
-#                     promo_move = chess.Move(from_square, to_square, promotion=promo)
-#                     uci = promo_move.uci()
-#                     uci_to_index[uci] = index
-#                     index_to_uci[index] = uci
-#                     index += 1
-
-#     return uci_to_index, index_to_uci

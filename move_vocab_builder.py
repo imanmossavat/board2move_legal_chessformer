@@ -1,5 +1,9 @@
 import chess
+import os
+import torch
+import pickle
 
+VOCAB_PATH = "data/move_vocab/vocab.pkl"
 def build_move_vocab():
     """
     Builds a comprehensive vocabulary of pseudo-legal chess moves as UCI strings,
@@ -106,6 +110,47 @@ def build_move_vocab():
     print(f"Total moves in vocabulary: {index}")
     return uci_to_index, index_to_uci
 
+def build_move_component_indices(index_to_uci):
+    from_ids = []
+    to_ids = []
+    promo_ids = []
+
+    for i in range(len(index_to_uci)):
+        uci = index_to_uci[i]
+        move = chess.Move.from_uci(uci)
+        from_ids.append(move.from_square)
+        to_ids.append(move.to_square)
+        if move.promotion is None:
+            promo_ids.append(0)
+        else:
+            mapping = {chess.QUEEN: 1, chess.ROOK: 2, chess.BISHOP: 3, chess.KNIGHT: 4}
+            promo_ids.append(mapping[move.promotion])
+
+    return torch.tensor(from_ids), torch.tensor(to_ids), torch.tensor(promo_ids)
+
+
+def load_or_build_vocab():
+    os.makedirs(os.path.dirname(VOCAB_PATH), exist_ok=True)
+    if os.path.exists(VOCAB_PATH):
+        with open(VOCAB_PATH, "rb") as f:
+            data = pickle.load(f)
+            print("Loaded move vocab from disk.")
+            return data["uci_to_index"], data["index_to_uci"], data["from_ids"], data["to_ids"], data["promo_ids"]
+    
+    uci_to_index, index_to_uci = build_move_vocab()
+    from_ids, to_ids, promo_ids = build_move_component_indices(index_to_uci)
+
+    with open(VOCAB_PATH, "wb") as f:
+        pickle.dump({
+            "uci_to_index": uci_to_index,
+            "index_to_uci": index_to_uci,
+            "from_ids": from_ids,
+            "to_ids": to_ids,
+            "promo_ids": promo_ids
+        }, f)
+        print("Saved move vocab to disk.")
+
+    return uci_to_index, index_to_uci, from_ids, to_ids, promo_ids
 
 if __name__ == "__main__":
     uci_to_index, index_to_uci = build_move_vocab()

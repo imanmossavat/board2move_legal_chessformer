@@ -1,10 +1,11 @@
 import unittest
-from move_vocab_builder import build_move_vocab
+from move_vocab_builder import build_move_vocab, load_or_build_vocab
 from dataset import ChessMoveDataset
 
 class TestMoveVocabContents(unittest.TestCase):
     def setUp(self):
-        self.uci_to_index, self.index_to_uci = build_move_vocab()
+        self.uci_to_index, self.index_to_uci, self.from_ids, self.to_ids, self.promo_ids = load_or_build_vocab()
+
 
     def test_castling_moves_present(self):
         castling_moves = ['e1g1', 'e1c1', 'e8g8', 'e8c8']
@@ -25,7 +26,7 @@ class TestMoveVocabContents(unittest.TestCase):
 
 class TestMoveVocabulary(unittest.TestCase):
     def setUp(self):
-        self.uci_to_index, _ = build_move_vocab()
+        self.uci_to_index, self.index_to_uci, self.from_ids, self.to_ids, self.promo_ids = load_or_build_vocab()
         self.pgn_path = r"C:\Users\imanm\Downloads\lichess_elite_2025-02\lichess_elite_2025-02.pgn"
         self.dataset = ChessMoveDataset(self.pgn_path, epsilon=0.1)
 
@@ -43,6 +44,16 @@ class TestMoveVocabulary(unittest.TestCase):
             print(f"Unknown moves: {sorted(unknown_moves)}")
         self.assertEqual(len(unknown_moves), 0, f"Found unknown moves: {unknown_moves}")
 
+    def test_component_shapes(self):
+        self.assertEqual(self.from_ids.shape[0], len(self.index_to_uci))
+        self.assertEqual(self.to_ids.shape[0], len(self.index_to_uci))
+        self.assertEqual(self.promo_ids.shape[0], len(self.index_to_uci))
+
+
+    def test_component_value_ranges(self):
+        self.assertTrue(all(0 <= x < 64 for x in self.from_ids.tolist()))
+        self.assertTrue(all(0 <= x < 64 for x in self.to_ids.tolist()))
+        self.assertTrue(all(0 <= x <= 4 for x in self.promo_ids.tolist()))
 
 if __name__ == "__main__":
     unittest.main()

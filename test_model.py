@@ -1,6 +1,7 @@
 import unittest
 import torch
-from move_vocab_builder import build_move_vocab
+from move_vocab_builder import load_or_build_vocab
+
 from model import MinimalChessTransformer  # replace with your actual model file name
 
 
@@ -8,7 +9,8 @@ class TestMinimalChessTransformer(unittest.TestCase):
 
     def setUp(self):
         # Build vocab and get number of classes
-        self.uci_to_index, _ = build_move_vocab()
+        self.uci_to_index, index_to_uci, from_ids, to_ids, promo_ids = load_or_build_vocab()
+
         self.num_classes = len(self.uci_to_index)
         self.input_dim = 13
         self.batch_size = 4

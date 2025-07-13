@@ -2,7 +2,7 @@ import torch
 import chess.pgn
 from torch.utils.data import IterableDataset
 from typing import Tuple, Generator
-from move_vocab_builder import build_move_vocab
+from move_vocab_builder import load_or_build_vocab
 from tokenizer import tokenize_board_uniform  # make sure this is imported
 from random import shuffle
 from collections import deque
@@ -43,7 +43,8 @@ class ChessMoveDataset(IterableDataset):
     def __init__(self, pgn_file_path: str, epsilon: float = 0.1):
         self.pgn_file_path = pgn_file_path
         self.epsilon= epsilon
-        self.uci_to_index, _ = build_move_vocab()
+        self.uci_to_index, _, _, _, _ = load_or_build_vocab()
+
 
 
     def parse_game(self, game: chess.pgn.Game) -> Generator[Tuple[torch.Tensor, torch.Tensor, str], None, None]:
