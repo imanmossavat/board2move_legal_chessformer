@@ -23,7 +23,9 @@ class BufferedShuffleDataset(IterableDataset):
             for _ in range(self.buffer_size):
                 buffer.append(next(iterator))
         except StopIteration:
+            print("[BufferedShuffleDataset] Reached end of dataset while filling buffer")
             pass
+
 
         while buffer:
             shuffle_buffer = list(buffer)
