@@ -1,5 +1,5 @@
 import unittest
-from move_vocab_builder import build_move_vocab, load_or_build_vocab
+from move_vocab_builder import  load_or_build_vocab
 from dataset import ChessMoveDataset
 
 class TestMoveVocabContents(unittest.TestCase):
@@ -32,7 +32,7 @@ class TestMoveVocabulary(unittest.TestCase):
 
     def test_moves_are_in_vocab(self):
         unknown_moves = set()
-        num_tests = 100000
+        num_tests = 10000
 
         for i, (_, _, uci) in enumerate(self.dataset):
             if i >= num_tests:

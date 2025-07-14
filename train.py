@@ -58,7 +58,7 @@ def train_loop(model, dataloader, optimizer, device, csv_writer, epoch, global_s
 
 def main():
     NEPOCHS = 1
-    epsilon = 0.1
+    epsilon = 0.01
     print(f'Model learns to follow the game with probability 1-epsilon= {1 - epsilon}')
     print('epsilon=1 means fully random legal move')
     print('epsilon=0 means deterministic user response')
