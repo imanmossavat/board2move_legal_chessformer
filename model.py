@@ -1,4 +1,9 @@
-import torch
+"""
+model.py
+
+Defines a minimal transformer model for chess move prediction using positional encoding,
+component-based biasing, and standard transformer encoder layers.
+"""
 import torch.nn as nn
 from positional_encoding import get_or_generate_encoding
 from move_vocab_builder import load_or_build_vocab

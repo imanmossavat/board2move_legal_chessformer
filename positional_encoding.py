@@ -1,4 +1,6 @@
 """
+positional_encoding.py
+
 Positional Encoding for Chessboard Squares (2D Sinusoidal)
 
 This module implements a 2D sinusoidal positional encoding designed

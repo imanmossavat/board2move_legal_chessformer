@@ -1,3 +1,13 @@
+"""
+train.py
+
+This script handles training for a minimal chess move prediction model using a transformer-based architecture.
+It includes logging, checkpointing, and data loading.
+
+Modules:
+- train_loop: Runs a single training loop.
+- main: Loads data, initializes model, and handles the training process.
+"""
 import torch
 from torch.utils.data import DataLoader
 from dataset import ChessMoveDataset, BufferedShuffleDataset

@@ -1,3 +1,9 @@
+"""
+tokenizer.py
+
+Functions to convert chess.Board objects into fixed-size tensor representations suitable for neural networks.
+Encodes pieces, castling rights, en passant, and legal move markers.
+"""
 import torch
 import chess
 from typing import Tuple

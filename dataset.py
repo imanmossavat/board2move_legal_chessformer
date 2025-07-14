@@ -1,3 +1,9 @@
+"""
+dataset.py
+
+Contains custom iterable datasets for processing chess PGN files into training-ready tensors.
+Supports shuffling with buffering and target move distributions with temperature control (epsilon).
+"""
 import torch
 import chess.pgn
 from torch.utils.data import IterableDataset

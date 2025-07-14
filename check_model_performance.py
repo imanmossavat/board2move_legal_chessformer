@@ -1,3 +1,4 @@
+# check_model_performance.py
 import torch
 import torch.nn.functional as F
 from model import MinimalChessTransformer

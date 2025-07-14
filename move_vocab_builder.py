@@ -1,3 +1,5 @@
+#move_vocab_builder.py
+
 import chess
 import os
 import torch
