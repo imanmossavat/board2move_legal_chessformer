@@ -1,92 +1,156 @@
-# check_model_performance.py
 import torch
 import torch.nn.functional as F
 from model import MinimalChessTransformer
-from dataset import ChessMoveDataset
-from torch.utils.data import DataLoader, Subset
-from tqdm import tqdm
-import statistics
-import time
+from dataset import ChessMoveDataset, BufferedShuffleDataset
+from tokenizer import fen2board
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
-# === Settings ===
-pgn_path = r"C:\Users\imanm\Downloads\lichess_elite_2025-02\lichess_elite_2025-02.pgn"
-model_path = r"C:\Users\imanm\Downloads\lichess_elite_2025-02\data\minimal_transformer_final.pth"
-limit_dataset = None  # e.g., 5000 for fast testing
-batch_size = 64
-topk_values = [1, 3, 5, 10]
+import matplotlib.pyplot as plt
+import numpy as np
 
-# === Device ===
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Running on device: {device}")
+def plot_move_info(legal_moves_mask, target_distribution, probs):
+    """
+    Plot legal moves mask, target distribution, and predicted probabilities side by side.
+    
+    Args:
+        legal_moves_mask: 1D array or tensor, binary mask where legal moves=1, illegal=0
+        target_distribution: 1D array or tensor of move probabilities (target labels)
+        probs: 1D array or tensor of predicted move probabilities from the model
+    """
+    # Convert to numpy arrays if tensors
+    if not isinstance(legal_moves_mask, np.ndarray):
+        legal_moves_mask = legal_moves_mask.cpu().numpy()
+    if not isinstance(target_distribution, np.ndarray):
+        target_distribution = target_distribution.cpu().numpy()
+    if not isinstance(probs, np.ndarray):
+        probs = probs.cpu().numpy()
+        
+    vocab_size = len(probs)
+    x = np.arange(vocab_size)
+    
+    fig, axs = plt.subplots(3, 1, figsize=(18, 5))
+    
+    # Legal moves mask barplot
+    axs[0].bar(x, legal_moves_mask, color='green')
+    axs[0].set_title("Legal Moves Mask")
+    axs[0].set_xlabel("Move Index")
+    axs[0].set_ylabel("Legal (1) or Illegal (0)")
+    axs[0].set_ylim([-0.1, 1.1])
+    
+    # Target distribution barplot
+    axs[1].bar(x, target_distribution, color='blue')
+    axs[1].set_title("Target Move Distribution")
+    axs[1].set_xlabel("Move Index")
+    axs[1].set_ylabel("Probability")
+    
+    # Predicted probabilities barplot
+    axs[2].bar(x, probs, color='orange')
+    axs[2].set_title("Model Predicted Probabilities")
+    axs[2].set_xlabel("Move Index")
+    axs[2].set_ylabel("Probability")
+    
+    plt.tight_layout()
+    plt.show()
 
-# === Load Model ===
-model = MinimalChessTransformer(device=device)
-model.load_state_dict(torch.load(model_path, map_location=device))
-model.to(device)
-model.eval()
+def evaluate_model(checkpoint_path, pgn_path, num_samples=100):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# === Load Dataset ===
-dataset = ChessMoveDataset(pgn_path, epsilon=0.0)
-if limit_dataset:
-    dataset = Subset(dataset, range(limit_dataset))
-uci_to_index = dataset.dataset.uci_to_index if isinstance(dataset, Subset) else dataset.uci_to_index
-index_to_uci = {v: k for k, v in uci_to_index.items()}
+    print(f"Loading model from {checkpoint_path}")
+    # Load dataset (streaming)
+    base_dataset = ChessMoveDataset(pgn_path, epsilon=0.0)  # 0 epsilon for clean targets
+    move_vocab_size = len(base_dataset.uci_to_index)
 
-dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, pin_memory=True, num_workers=2)
+    model = MinimalChessTransformer(num_classes=move_vocab_size, device=device).to(device)
+    model.load_state_dict(torch.load(checkpoint_path, map_location=device))
+    model.eval()
 
-# === Metric Storage ===
-correct_probs = []
-legal_sums = []
-ranks = []
-topk_correct = {k: 0 for k in topk_values}
-total = 0
+    dataset = iter(base_dataset)  # raw iterator without shuffling
 
-# === Evaluation Loop ===
-start_time = time.time()
-with torch.no_grad():
-    for board_tensor, target_distribution, boards in tqdm(dataloader, total=len(dataloader)):
-        board_tensor = board_tensor.to(device, non_blocking=True)
-        target_distribution = target_distribution.to(device, non_blocking=True)
+    correct_ranks = []
+    actual_probs = []
+    legal_mass = []
+    illegal_mass = []
+    with torch.no_grad():
+        for i in range(num_samples):
+            board_tensor, target_distribution, metadata = next(dataset)
+            board_tensor = board_tensor.unsqueeze(0).to(device)  # add batch dim
+            target_distribution = target_distribution.squeeze().cpu()
 
-        logits = model(board_tensor)
-        probs = F.softmax(logits, dim=1)  # (batch, 1968)
-        batch_size_actual = probs.size(0)
+            logits = model(board_tensor)
+            probs = F.softmax(logits, dim=1).squeeze().cpu()  # shape: [num_moves]
 
-        # True move indices
-        true_indices = target_distribution.argmax(dim=1)
+            # Determine actual move index (argmax of target distribution)
+            actual_index = target_distribution.argmax().item()
+            actual_prob = probs[actual_index].item()
 
-        # p(correct move)
-        correct_p_batch = probs.gather(1, true_indices.unsqueeze(1)).squeeze(1)
-        correct_probs.extend(correct_p_batch.tolist())
+            # Compute rank of actual move
+            sorted_indices = torch.argsort(probs, descending=True)
+            rank = (sorted_indices == actual_index).nonzero(as_tuple=True)[0].item() + 1
 
-        # p(legal moves)
-        for i in range(batch_size_actual):
-            legal_uci = [m.uci() for m in boards[i].legal_moves]
-            legal_idx = [uci_to_index[m] for m in legal_uci if m in uci_to_index]
-            legal_sum = probs[i, legal_idx].sum()
-            legal_sums.append(legal_sum.item())
+            # Mass on legal vs illegal
+            legal_moves_mask = target_distribution > 0
 
-        # Rank of correct move
-        sorted_indices = torch.argsort(probs, dim=1, descending=True)
-        match_positions = (sorted_indices == true_indices.unsqueeze(1)).nonzero(as_tuple=False)
-        batch_ranks = match_positions[:, 1] + 1  # 1-based rank
-        ranks.extend(batch_ranks.tolist())
+            # Print summary stats
+            print(f"Target distribution non-zero entries: {np.count_nonzero(target_distribution)}")
+            print(f"Legal moves mask sum (num legal moves): {legal_moves_mask.sum().item()}")
+            print(f"Top-5 probs: {probs.topk(5).values.tolist()}")
+            print(f"Target distribution max value: {target_distribution.max().item():.4f}")
+            print(f"Target move index: {actual_index}")
 
-        # Top-k accuracy
-        topk_preds = torch.topk(probs, max(topk_values), dim=1).indices  # (batch, k)
-        for k in topk_values:
-            correct_in_topk = (topk_preds[:, :k] == true_indices.unsqueeze(1)).any(dim=1).sum().item()
-            topk_correct[k] += correct_in_topk
+            plot_move_info(legal_moves_mask, target_distribution, probs.cpu())
 
-        total += batch_size_actual
+    
+    assert False
+    with torch.no_grad():
+        for i in range(num_samples):
+            board_tensor, target_distribution, metadata = next(dataset)
+            board_tensor = board_tensor.unsqueeze(0).to(device)  # add batch dim
+            target_distribution = target_distribution.squeeze().cpu()
 
-# === Results ===
-duration = time.time() - start_time
-print("\n=== Evaluation Results ===")
-print(f"Total samples: {total}")
-print(f"Runtime: {duration:.2f} sec")
-print(f"Average p(correct move): {statistics.mean(correct_probs):.4f}")
-print(f"Average sum p(legal moves): {statistics.mean(legal_sums):.4f}")
-print(f"Median rank of correct move: {statistics.median(ranks)}")
-for k in topk_values:
-    print(f"Top-{k} accuracy: {topk_correct[k] / total:.2%}")
+            logits = model(board_tensor)
+            probs = F.softmax(logits, dim=1).squeeze().cpu()  # shape: [num_moves]
+
+            # Determine actual move index (argmax of target distribution)
+            actual_index = target_distribution.argmax().item()
+            actual_prob = probs[actual_index].item()
+
+            # Compute rank of actual move
+            sorted_indices = torch.argsort(probs, descending=True)
+            rank = (sorted_indices == actual_index).nonzero(as_tuple=True)[0].item() + 1
+
+            # Mass on legal vs illegal
+            legal_moves_mask = target_distribution > 0
+            legal_sum = probs[legal_moves_mask].sum().item()
+            illegal_sum = probs[~legal_moves_mask].sum().item()
+
+            correct_ranks.append(rank)
+            actual_probs.append(actual_prob)
+            legal_mass.append(legal_sum)
+            illegal_mass.append(illegal_sum)
+
+            print(f"Sample {i+1}:")
+            print(f"  Actual move index: {actual_index}")
+            print(f"  Rank: {rank}")
+            print(f"  Prob of actual move: {actual_prob:.4f}")
+            print(f"  Legal move mass: {legal_sum:.4f}")
+            print(f"  Illegal move mass: {illegal_sum:.4f}")
+            print("-" * 40)
+
+            # Plot for the first sample (or any sample you want)
+            if i == 0:
+                plot_move_info(legal_moves_mask, target_distribution, probs.cpu())
+            else:
+                assert False
+
+    # Summary stats
+    print("\n=== Summary ===")
+    print(f"Average rank of actual move: {sum(correct_ranks)/len(correct_ranks):.2f}")
+    print(f"Average probability on actual move: {sum(actual_probs)/len(actual_probs):.4f}")
+    print(f"Average legal move mass: {sum(legal_mass)/len(legal_mass):.4f}")
+    print(f"Average illegal move mass: {sum(illegal_mass)/len(illegal_mass):.4f}")
+
+if __name__ == "__main__":
+    checkpoint = r"C:\Users\imanm\Downloads\lichess_elite_2025-02\data\checkpoints\model_epoch1_batch230000.pth"
+    pgn_path = r"C:\Users\imanm\Downloads\lichess_elite_2025-02\lichess_elite_2025-02.pgn"
+    evaluate_model(checkpoint, pgn_path, num_samples=100)
