@@ -97,3 +97,54 @@ Presumably generates positional encodings for transformer input, e.g., using sin
    ```
 4. Check `logs_<timestamp>/training_loss.csv` and `data/checkpoints/` for logs and saved models.
 
+
+
+ list of **all functions** 
+Sure! Here's the same list in a plain, dev-friendly format — useful for referencing or pasting into comments or docs:
+
+---
+
+**File: `train.py`**
+
+* `train_loop(model, dataloader, optimizer, device, csv_writer, epoch, global_step, save_every=10000, data_dir=None)`
+* `main()`
+
+---
+
+**File: `model.py`**
+
+* `MinimalChessTransformer.__init__(self, input_dim=13, hidden_dim=128, num_layers=3, num_heads=8, num_classes=1968, device='cuda')`
+* `MinimalChessTransformer.forward(self, board_tensor)`
+
+---
+
+**File: `dataset.py`**
+
+* `BufferedShuffleDataset.__init__(self, dataset, buffer_size=5000)`
+* `BufferedShuffleDataset.__iter__(self)`
+* `ChessMoveDataset.__init__(self, pgn_file_path: str, epsilon: float = 0.1)`
+* `ChessMoveDataset.parse_game(self, game: chess.pgn.Game)`
+* `ChessMoveDataset.game_generator(self)`
+* `ChessMoveDataset.__iter__(self)`
+
+---
+
+**File: `tokenizer.py`**
+
+* `board_to_tensor(board: chess.Board)`
+* `encode_castling_rights(board: chess.Board)`
+* `encode_en_passant(board: chess.Board)`
+* `encode_legal_moves_side(board: chess.Board)`
+* `tokenize_board_uniform(board: chess.Board)`
+* `square_name_to_index(square: str)`
+* `square_name_to_file_rank(square: str)`
+* `fen2board(fen: str)`
+
+---
+
+**File: `move_vocab_builder.py`**
+
+* `build_move_vocab()`
+* `build_move_component_indices(index_to_uci)`
+* `load_or_build_vocab()`
+

@@ -17,7 +17,7 @@ import os
 import csv
 from datetime import datetime
 
-def train_loop(model, dataloader, optimizer, device, csv_writer, epoch, global_step, save_every=10000, data_dir=None):
+def train_loop(model, dataloader, optimizer, device, csv_writer, epoch, global_step, save_every=5000, data_dir=None):
     model.train()
     total_loss = 0
     criterion = torch.nn.KLDivLoss(reduction="batchmean")
