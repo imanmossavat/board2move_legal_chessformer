@@ -116,7 +116,7 @@ class TestChessMoveDataset(unittest.TestCase):
         dataset = ChessMoveDataset(self.test_pgn.name)
         loader = DataLoader(dataset, batch_size=2)
 
-        board_batch, target_batch, actual_uci_batch = next(iter(loader))
+        board_batch, target_batch, actual_uci_batch,_ = next(iter(loader))
 
         self.assertEqual(board_batch.shape[0], 2)
         self.assertEqual(board_batch.shape[1], 64)

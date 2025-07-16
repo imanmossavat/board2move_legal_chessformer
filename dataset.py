@@ -78,7 +78,7 @@ class ChessMoveDataset(IterableDataset):
             actual_idx = self.uci_to_index[actual_uci]
             target_distribution[actual_idx] += 1.0 - self.epsilon
 
-            yield board_tensor, target_distribution, actual_uci
+            yield board_tensor, target_distribution, actual_uci, legal_indices
             board.push(move)
 
     def game_generator(self) -> Generator[Tuple[torch.Tensor, int], None, None]:

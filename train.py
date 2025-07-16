@@ -27,7 +27,7 @@ def train_loop(model, dataloader, optimizer, device, csv_writer, epoch, global_s
 
     log_buffer = []
 
-    for batch_idx, (board_tensor, target_distribution, _) in enumerate(dataloader):
+    for batch_idx, (board_tensor, target_distribution, *_)  in enumerate(dataloader):
         board_tensor = board_tensor.to(device, non_blocking=True)
         target_distribution = target_distribution.to(device, non_blocking=True)
 
