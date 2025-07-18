@@ -34,7 +34,7 @@ class TestMoveVocabulary(unittest.TestCase):
         unknown_moves = set()
         num_tests = 10000
 
-        for i, (_, _, uci) in enumerate(self.dataset):
+        for i, (_, _, uci,_) in enumerate(self.dataset):
             if i >= num_tests:
                 break
             if uci not in self.uci_to_index:

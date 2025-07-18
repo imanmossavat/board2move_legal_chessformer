@@ -46,10 +46,11 @@ class BufferedShuffleDataset(IterableDataset):
 
 
 class ChessMoveDataset(IterableDataset):
-    def __init__(self, pgn_file_path: str, epsilon: float = 0.1):
+    def __init__(self, pgn_file_path: str, epsilon: float = 0.1, include_board: bool=False):
         self.pgn_file_path = pgn_file_path
         self.epsilon= epsilon
         self.uci_to_index, _, _, _, _ = load_or_build_vocab()
+        self.include_board= include_board
 
 
 
@@ -77,8 +78,15 @@ class ChessMoveDataset(IterableDataset):
             assert actual_uci in self.uci_to_index, f"Actual move {actual_uci} not in move vocabulary!"
             actual_idx = self.uci_to_index[actual_uci]
             target_distribution[actual_idx] += 1.0 - self.epsilon
+            
+            if self.include_board:
+                yield board_tensor, target_distribution, {"actual_uci": actual_uci, 
+                                                      "legal_indices": legal_indices,
+                                                      "board": board}
+            else:
+                yield board_tensor, target_distribution, {"actual_uci": actual_uci, 
+                                                      "legal_indices": legal_indices}
 
-            yield board_tensor, target_distribution, actual_uci, legal_indices
             board.push(move)
 
     def game_generator(self) -> Generator[Tuple[torch.Tensor, int], None, None]:

@@ -37,9 +37,9 @@ class TestChessMoveDataset(unittest.TestCase):
         sample = next(iterator)
 
         self.assertIsInstance(sample, tuple)
-        self.assertEqual(len(sample), 3)
+        self.assertEqual(len(sample), 4)
 
-        board_tensor, target_distribution, actual_uci = sample
+        board_tensor, target_distribution, actual_uci,_ = sample
 
         self.assertIsInstance(board_tensor, torch.Tensor)
         self.assertEqual(board_tensor.shape[0], 64)  # 64 squares
@@ -141,7 +141,7 @@ class TestChessMoveDataset(unittest.TestCase):
         dataset1 = list(ChessMoveDataset(self.test_pgn.name))
         dataset2 = list(ChessMoveDataset(self.test_pgn.name))
 
-        for (b1, t1, u1), (b2, t2, u2) in zip(dataset1, dataset2):
+        for (b1, t1, u1,_), (b2, t2, u2,_) in zip(dataset1, dataset2):
             self.assertTrue(torch.equal(b1, b2))
             self.assertTrue(torch.equal(t1, t2))
             self.assertEqual(u1, u2)

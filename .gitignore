@@ -21,6 +21,8 @@ venv/
 *.pt
 *.ckpt
 *.pth
+*.csv 
+*.xlsx
 
 # tensorboard
 runs/
