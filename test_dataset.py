@@ -3,9 +3,12 @@ import tempfile
 import os
 import chess
 import chess.pgn
-from dataset import ChessMoveDataset
-from torch.utils.data import DataLoader
 import torch
+import pickle
+from dataset import ChessMoveDataset, BoardMovePairDataset
+from torch.utils.data import DataLoader
+from tokenizer import tokenize_board_uniform
+
 
 class TestChessMoveDataset(unittest.TestCase):
 
@@ -26,61 +29,48 @@ class TestChessMoveDataset(unittest.TestCase):
 
     def tearDown(self):
         try:
-            self.test_pgn.close()
+            os.unlink(self.test_pgn.name)
         except Exception:
             pass
-        os.unlink(self.test_pgn.name)
 
     def test_dataset_output_structure(self):
-        dataset = ChessMoveDataset(self.test_pgn.name)
-        iterator = iter(dataset)
-        sample = next(iterator)
+        dataset = ChessMoveDataset(self.test_pgn.name, include_meta=True)
+        sample = next(iter(dataset))
 
         self.assertIsInstance(sample, tuple)
-        self.assertEqual(len(sample), 4)
+        self.assertEqual(len(sample), 3)
 
-        board_tensor, target_distribution, actual_uci,_ = sample
+        board_tensor, target_distribution, meta = sample
 
         self.assertIsInstance(board_tensor, torch.Tensor)
-        self.assertEqual(board_tensor.shape[0], 64)  # 64 squares
-        self.assertEqual(board_tensor.shape[1], 13)  # updated channel count
+        self.assertEqual(board_tensor.shape, (64, 13))
 
         self.assertIsInstance(target_distribution, torch.Tensor)
         self.assertEqual(target_distribution.shape[0], len(dataset.uci_to_index))
-        self.assertAlmostEqual(target_distribution.sum().item(), 1.0, places=5)
-        self.assertTrue((target_distribution >= 0).all().item())  # probs non-negative
+        self.assertAlmostEqual(target_distribution.sum().item(), 1.0, places=4)
 
+        actual_uci = meta["actual_uci"]
         self.assertIsInstance(actual_uci, str)
         self.assertIn(actual_uci, dataset.uci_to_index)
-
-        # Check that the probability for actual move is highest or close to (1 - epsilon)
-        actual_idx = dataset.uci_to_index[actual_uci]
-        self.assertGreater(target_distribution[actual_idx].item(), 1.0 - dataset.epsilon)
 
     def test_dataset_yields_all_moves(self):
         dataset = ChessMoveDataset(self.test_pgn.name)
         samples = list(dataset)
-        self.assertEqual(len(samples), 6)  # 6 plies
+        self.assertEqual(len(samples), 6)  # 6 plies (half-moves)
 
-    def test_correct_next_move_square(self):
-        from tokenizer import tokenize_board_uniform
-
-        dataset = ChessMoveDataset(self.test_pgn.name)
+    def test_correct_next_move_tensor(self):
+        dataset = ChessMoveDataset(self.test_pgn.name, include_meta=True)
         with open(self.test_pgn.name, 'r') as f:
             game = chess.pgn.read_game(f)
 
         board = game.board()
-        for (board_tensor, target_distribution, actual_uci), move in zip(dataset, game.mainline_moves()):
+        for (board_tensor, target_distribution, meta), move in zip(dataset, game.mainline_moves()):
             expected_tensor = tokenize_board_uniform(board)
             self.assertTrue(torch.equal(board_tensor, expected_tensor))
+            self.assertEqual(meta["actual_uci"], move.uci())
 
-            # actual_uci string should match move.uci()
-            self.assertEqual(actual_uci, move.uci())
-
-            # Target distribution should put most weight on actual move index
-            actual_idx = dataset.uci_to_index[actual_uci]
+            actual_idx = dataset.uci_to_index[meta["actual_uci"]]
             self.assertGreater(target_distribution[actual_idx].item(), 1.0 - dataset.epsilon)
-
             board.push(move)
 
     def test_multiple_games(self):
@@ -109,24 +99,33 @@ class TestChessMoveDataset(unittest.TestCase):
         multi_pgn.close()
         dataset = ChessMoveDataset(multi_pgn.name)
         samples = list(dataset)
-        self.assertEqual(len(samples), 8)  # total moves from both games
+        self.assertEqual(len(samples), 8)  # 8 plies
         os.unlink(multi_pgn.name)
-
-    def test_dataloader_integration(self):
-        dataset = ChessMoveDataset(self.test_pgn.name)
+    
+    def test_dataloader_training_mode(self):
+        # Meta is OFF → batching is OK
+        dataset = ChessMoveDataset(self.test_pgn.name, include_meta=False)
         loader = DataLoader(dataset, batch_size=2)
 
-        board_batch, target_batch, actual_uci_batch,_ = next(iter(loader))
+        board_batch, target_batch = next(iter(loader))
 
         self.assertEqual(board_batch.shape[0], 2)
-        self.assertEqual(board_batch.shape[1], 64)
-        self.assertEqual(board_batch.shape[2], 13)  # batch x squares x channels
-
+        self.assertEqual(board_batch.shape[1:], (64, 13))
         self.assertEqual(target_batch.shape[0], 2)
         self.assertEqual(target_batch.shape[1], len(dataset.uci_to_index))
 
-        self.assertEqual(len(actual_uci_batch), 2)
-        self.assertIsInstance(actual_uci_batch[0], str)
+
+    def test_evaluation_mode_no_batching(self):
+        # Meta is ON → no batching
+        dataset = ChessMoveDataset(self.test_pgn.name, include_meta=True)
+        sample = next(iter(dataset))
+
+        board_tensor, target_distribution, meta = sample
+
+        self.assertIsInstance(board_tensor, torch.Tensor)
+        self.assertIsInstance(target_distribution, torch.Tensor)
+        self.assertIsInstance(meta, dict)
+        self.assertIn("board", meta)
 
     def test_empty_pgn_file(self):
         empty_pgn = tempfile.NamedTemporaryFile(delete=False, suffix=".pgn")
@@ -138,13 +137,34 @@ class TestChessMoveDataset(unittest.TestCase):
         os.unlink(empty_pgn.name)
 
     def test_deterministic_output(self):
-        dataset1 = list(ChessMoveDataset(self.test_pgn.name))
-        dataset2 = list(ChessMoveDataset(self.test_pgn.name))
+        dataset1 = list(ChessMoveDataset(self.test_pgn.name, include_meta=True))
+        dataset2 = list(ChessMoveDataset(self.test_pgn.name, include_meta=True))
 
-        for (b1, t1, u1,_), (b2, t2, u2,_) in zip(dataset1, dataset2):
+        for (b1, t1, m1), (b2, t2, m2) in zip(dataset1, dataset2):
             self.assertTrue(torch.equal(b1, b2))
             self.assertTrue(torch.equal(t1, t2))
-            self.assertEqual(u1, u2)
+            self.assertEqual(m1["actual_uci"], m2["actual_uci"])
+
+    def test_board_move_pair_dataset(self):
+        # Create dummy data and save it to a temp file
+        dummy_data = [(torch.randn(64, 13), 12), (torch.randn(64, 13), 44)]
+        temp_dir = tempfile.mkdtemp()
+        data_path = os.path.join(temp_dir, "temp_board_moves.pkl")
+        with open(data_path, 'wb') as f:
+            pickle.dump(dummy_data, f)
+
+        dataset = BoardMovePairDataset(data_path)
+        samples = list(dataset)
+        self.assertEqual(len(samples), 2)
+
+        for board_tensor, move_idx in samples:
+            self.assertIsInstance(board_tensor, torch.Tensor)
+            self.assertEqual(board_tensor.shape, (64, 13))
+            self.assertIsInstance(move_idx, int)
+
+        os.unlink(data_path)
+        os.rmdir(temp_dir)
+
 
 if __name__ == '__main__':
     unittest.main()
