@@ -1,9 +1,31 @@
 """
 dataset.py
 
-Contains custom iterable datasets for processing chess PGN files into training-ready tensors.
-Supports shuffling with buffering and target move distributions with temperature control (epsilon).
+Provides iterable datasets for training chess models on PGN game data or preprocessed (board, move) pairs.
+
+Includes:
+
+1. ChessMoveDataset:
+   - Parses PGN files into training samples of (board_tensor, target_distribution).
+   - Supports epsilon-smoothing across legal moves for robustness.
+   - Can optionally return board metadata (actual move, legal moves, and board object) for curriculum filtering or debugging.
+
+2. BoardMovePairDataset:
+   - Loads preprocessed (board_tensor, move_index) pairs from disk.
+   - Designed for use in curriculum learning setups with curated or filtered data.
+
+3. BufferedShuffleDataset:
+   - Buffers and randomly shuffles samples from a wrapped iterable dataset.
+   - Enables better stochasticity for stream-based datasets (e.g., large PGN files).
+
+Usage:
+    Use `ChessMoveDataset` for raw PGN training.
+    Use `BoardMovePairDataset` when training on extracted (board, move) pairs.
+    Wrap either in `BufferedShuffleDataset` for randomized sampling.
+
 """
+
+
 import torch
 import chess.pgn
 from torch.utils.data import IterableDataset
@@ -12,6 +34,7 @@ from move_vocab_builder import load_or_build_vocab
 from tokenizer import tokenize_board_uniform  # make sure this is imported
 from random import shuffle
 from collections import deque
+import pickle
 
 
 
@@ -99,3 +122,16 @@ class ChessMoveDataset(IterableDataset):
 
     def __iter__(self):
         return self.game_generator()
+
+
+class BoardMovePairDataset(IterableDataset):
+    """
+    Dataset that loads saved (board_tensor, move_index) pairs from disk.
+    """
+    def __init__(self, data_file):
+        with open(data_file, 'rb') as f:
+            self.samples = pickle.load(f)  # List of (board_tensor, move_idx)
+
+    def __iter__(self):
+        for board_tensor, move_index in self.samples:
+            yield board_tensor, move_index

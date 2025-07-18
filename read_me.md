@@ -34,12 +34,26 @@ Defines `MinimalChessTransformer`, a transformer encoder architecture for chess 
 ### `dataset.py`
 
 **Purpose**:
-Contains custom `IterableDataset` subclasses:
+Contains custom `IterableDataset` subclasses for processing chess training data in two formats:
 
-* `ChessMoveDataset`: Parses PGN files into `(board_tensor, target_distribution)` samples, optionally with epsilon noise.
-* `BufferedShuffleDataset`: Buffers and randomly yields samples for better shuffling when using streaming datasets.
+* `ChessMoveDataset`:
+  - Parses `.pgn` files into `(board_tensor, target_distribution)` tuples.
+  - Target distributions are epsilon-smoothed over legal moves to improve generalization.
+  - Supports optional metadata output (actual move, list of legal moves, and full board state).
+  - Suitable for training on full games directly from PGN.
 
----
+* `BoardMovePairDataset`:
+  - Loads saved (board_tensor, move_index) pairs from `.pkl` files.
+  - Intended for curriculum learning setups with curated or filtered data.
+  - Faster and more flexible for training from preprocessed data.
+
+* `BufferedShuffleDataset`:
+  - Wraps any `IterableDataset` and provides streaming-buffer-based random sampling.
+  - Useful for large-scale datasets where full random shuffling is not feasible.
+
+**Note**:
+`ChessMoveDataset` supports an `include_board=True` flag to return metadata (e.g., actual UCI move and board object), which is useful for curriculum filtering, visualization, or debugging.
+
 
 ### `tokenizer.py`
 
@@ -122,10 +136,14 @@ Sure! Here's the same list in a plain, dev-friendly format — useful for refere
 
 * `BufferedShuffleDataset.__init__(self, dataset, buffer_size=5000)`
 * `BufferedShuffleDataset.__iter__(self)`
-* `ChessMoveDataset.__init__(self, pgn_file_path: str, epsilon: float = 0.1)`
+
+* `ChessMoveDataset.__init__(self, pgn_file_path: str, epsilon: float = 0.1, include_board: bool = False)`
 * `ChessMoveDataset.parse_game(self, game: chess.pgn.Game)`
 * `ChessMoveDataset.game_generator(self)`
 * `ChessMoveDataset.__iter__(self)`
+
+* `BoardMovePairDataset.__init__(self, data_file)`
+* `BoardMovePairDataset.__iter__(self)`
 
 ---
 
