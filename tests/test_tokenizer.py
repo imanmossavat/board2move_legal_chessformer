@@ -1,7 +1,7 @@
 import unittest
 import torch
 import chess
-from tokenizer import (
+from core.tokenizer import (
     board_to_tensor,
     encode_castling_rights,
     encode_en_passant,

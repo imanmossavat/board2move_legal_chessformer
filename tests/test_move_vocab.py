@@ -1,6 +1,6 @@
 import unittest
-from move_vocab_builder import  load_or_build_vocab
-from dataset import ChessMoveDataset
+from core.move_vocab_builder import  load_or_build_vocab
+from core.dataset import ChessMoveDataset
 
 class TestMoveVocabContents(unittest.TestCase):
     def setUp(self):

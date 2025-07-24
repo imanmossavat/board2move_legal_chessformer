@@ -5,9 +5,9 @@ import chess
 import chess.pgn
 import torch
 import pickle
-from dataset import ChessMoveDataset, BoardMovePairDataset
+from core.dataset import ChessMoveDataset, BoardMovePairDataset
 from torch.utils.data import DataLoader
-from tokenizer import tokenize_board_uniform
+from core.tokenizer import tokenize_board_uniform
 
 
 class TestChessMoveDataset(unittest.TestCase):

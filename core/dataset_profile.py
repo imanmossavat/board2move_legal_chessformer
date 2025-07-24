@@ -1,7 +1,7 @@
 import time
 import chess.pgn
 import torch
-from tokenizer import tokenize_board_uniform  # must match your dataset logic
+from core.tokenizer import tokenize_board_uniform  # must match your dataset logic
 
 def profile_dataset(pgn_path=r"C:\Users\imanm\Downloads\lichess_elite_2025-02\lichess_elite_2025-02.pgn",
                     max_games=1000):

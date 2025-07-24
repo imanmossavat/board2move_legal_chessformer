@@ -1,8 +1,8 @@
 import unittest
 import torch
-from move_vocab_builder import load_or_build_vocab
+from core.move_vocab_builder import load_or_build_vocab
 
-from model import MinimalChessTransformer  # replace with your actual model file name
+from models.model import MinimalChessTransformer  # replace with your actual model file name
 
 
 class TestMinimalChessTransformer(unittest.TestCase):

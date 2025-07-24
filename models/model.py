@@ -1,8 +1,8 @@
 # model.py
 import torch
 import torch.nn as nn
-from positional_encoding import get_or_generate_encoding
-from move_vocab_builder import load_or_build_vocab
+from core.positional_encoding import get_or_generate_encoding
+from core.move_vocab_builder import load_or_build_vocab
 
 class MinimalChessTransformer(nn.Module):
     """

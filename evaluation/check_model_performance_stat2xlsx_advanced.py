@@ -6,9 +6,9 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from datetime import datetime
-from model import MinimalChessTransformer
-from dataset import ChessMoveDataset
-from move_vocab_builder import load_or_build_vocab
+from models.model import MinimalChessTransformer
+from core.dataset import ChessMoveDataset
+from core.move_vocab_builder import load_or_build_vocab
 import chess.engine
 import seaborn as sns
 

@@ -31,8 +31,8 @@ import torch
 import chess.pgn
 from torch.utils.data import IterableDataset
 from typing import Tuple, Generator
-from move_vocab_builder import load_or_build_vocab
-from tokenizer import tokenize_board_uniform  # make sure this is imported
+from core.move_vocab_builder import load_or_build_vocab
+from core.tokenizer import tokenize_board_uniform  # make sure this is imported
 from random import shuffle
 from collections import deque
 import pickle

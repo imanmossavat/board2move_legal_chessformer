@@ -10,8 +10,8 @@ Modules:
 """
 import torch
 from torch.utils.data import DataLoader
-from dataset import ChessMoveDataset, BufferedShuffleDataset
-from model import MinimalChessTransformer
+from core.dataset import ChessMoveDataset, BufferedShuffleDataset
+from models.model import MinimalChessTransformer
 import torch.nn.functional as F
 import os
 import csv

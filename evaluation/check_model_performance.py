@@ -1,8 +1,8 @@
 import torch
 import torch.nn.functional as F
-from model import MinimalChessTransformer
-from dataset import ChessMoveDataset, BufferedShuffleDataset
-from tokenizer import fen2board
+from models.model import MinimalChessTransformer
+from core.dataset import ChessMoveDataset, BufferedShuffleDataset
+from core.tokenizer import fen2board
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 

@@ -1,12 +1,12 @@
 import chess
 import torch
 import torch.nn.functional as F
-from model import MinimalChessTransformer
-from dataset import ChessMoveDataset, BufferedShuffleDataset
-from tokenizer import fen2board
+from models.model import MinimalChessTransformer
+from core.dataset import ChessMoveDataset
+from core.move_vocab_builder import load_or_build_vocab
+from core.dataset import ChessMoveDataset, BufferedShuffleDataset
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-from move_vocab_builder import load_or_build_vocab
 uci_to_index, index_to_uci, _, _, _ = load_or_build_vocab()
 
 import pandas as pd
