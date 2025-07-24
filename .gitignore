@@ -17,6 +17,7 @@ venv/
 # OS files
 .DS_Store
 
+temp.py
 # Model or checkpoint files (optional)
 *.pt
 *.ckpt

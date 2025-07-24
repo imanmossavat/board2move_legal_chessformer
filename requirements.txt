@@ -1,0 +1,7 @@
+torch
+chess
+pandas
+matplotlib
+seaborn
+tqdm
+XlsxWriter
