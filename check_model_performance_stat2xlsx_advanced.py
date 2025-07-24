@@ -22,7 +22,7 @@ FAILURE_HIGH_PROBABILITY_RANK = 3
 ESTIMATED_ELO_K = 10
 
 num_samples = 100
-checkpoint_path = r"C:\Users\imanm\Downloads\lichess_elite_2025-02\data\checkpoints\model_epoch1_batch230000.pth"
+checkpoint_path = r"C:\Users\imanm\Downloads\lichess_elite_2025-02\data\checkpoints\model_prior_tojul24\model_epoch1_batch230000.pth"
 pgn_path = r"C:\Users\imanm\Downloads\lichess_elite_2025-02\lichess_elite_2025-02.pgn"
 stockfish_path = r"C:\Users\imanm\Downloads\stockfish\stockfish\stockfish-windows-x86-64-avx2.exe"
 

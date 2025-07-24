@@ -168,6 +168,6 @@ def evaluate_model(checkpoint_path, pgn_path, num_samples=100):
     plt.show()
 
 if __name__ == "__main__":
-    checkpoint = r"C:\Users\imanm\Downloads\lichess_elite_2025-02\data\checkpoints\model_epoch1_batch230000.pth"
+    checkpoint = r"C:\Users\imanm\Downloads\lichess_elite_2025-02\data\checkpoints\model_prior_tojul24\model_epoch1_batch230000.pth"
     pgn_path = r"C:\Users\imanm\Downloads\lichess_elite_2025-02\lichess_elite_2025-02.pgn"
     evaluate_model(checkpoint, pgn_path, num_samples=1000)

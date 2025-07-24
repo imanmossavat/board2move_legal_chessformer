@@ -11,7 +11,8 @@ uci_to_index, index_to_uci, _, _, _ = load_or_build_vocab()
 
 import pandas as pd
 failure_cases = []
-checkpoint_path = r"C:\Users\imanm\Downloads\lichess_elite_2025-02\data\checkpoints\model_epoch1_batch230000.pth"
+checkpoint_path = r"C:\Users\imanm\Downloads\lichess_elite_2025-02\data\checkpoints\model_prior_tojul24\model_epoch1_batch230000.pth"
+
 pgn_path = r"C:\Users\imanm\Downloads\lichess_elite_2025-02\lichess_elite_2025-02.pgn"
 num_samples= 100
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
