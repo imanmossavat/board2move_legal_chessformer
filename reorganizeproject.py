@@ -24,6 +24,16 @@ structure = {
     ],
 }
 
+
+for folder,_ in structure.items():
+    init_path = os.path.join(folder, "__init__.py")
+    if not os.path.exists(init_path):
+        with open(init_path, "w") as f:
+            f.write("#make a python package.\n")
+        print(f"created {init_path}")
+
+
+
 # Create folders and move files
 for folder, files in structure.items():
     os.makedirs(folder, exist_ok=True)
