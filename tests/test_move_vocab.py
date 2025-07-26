@@ -1,3 +1,4 @@
+# test move_vocab.py
 import unittest
 from core.move_vocab_builder import  load_or_build_vocab
 from core.dataset import ChessMoveDataset
@@ -28,15 +29,16 @@ class TestMoveVocabulary(unittest.TestCase):
     def setUp(self):
         self.uci_to_index, self.index_to_uci, self.from_ids, self.to_ids, self.promo_ids = load_or_build_vocab()
         self.pgn_path = r"C:\Users\imanm\Downloads\lichess_elite_2025-02\lichess_elite_2025-02.pgn"
-        self.dataset = ChessMoveDataset(self.pgn_path, epsilon=0.1)
+        self.dataset = ChessMoveDataset(self.pgn_path, epsilon=0.1, include_meta=True)
 
     def test_moves_are_in_vocab(self):
         unknown_moves = set()
         num_tests = 10000
 
-        for i, (_, _, uci,_) in enumerate(self.dataset):
+        for i, (_, _, meta) in enumerate(self.dataset):
             if i >= num_tests:
                 break
+            uci= meta["actual_uci"]
             if uci not in self.uci_to_index:
                 unknown_moves.add(uci)
 

@@ -16,7 +16,7 @@ venv/
 
 # OS files
 .DS_Store
-
+.env
 reorganizeproject.py
 temp.py
 # Model or checkpoint files (optional)
