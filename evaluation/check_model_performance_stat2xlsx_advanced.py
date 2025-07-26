@@ -47,7 +47,16 @@ def load_model_and_dataset(checkpoint_path, pgn_path, device):
     vprint(f"Vocabulary size: {move_vocab_size}")
     vprint("Loading model...")
     model = MinimalChessTransformer(num_classes=move_vocab_size, device=device).to(device)
-    model.load_state_dict(torch.load(checkpoint_path, map_location=device))
+    ckpt = torch.load(checkpoint_path, map_location=device)
+    if isinstance(ckpt, dict) and "model_state_dict" in ckpt:
+        model.load_state_dict(ckpt['model_state_dict'])
+        vprint(f"Model version: {ckpt['model_version']}, Git commit: {ckpt['git_version']}")
+    else:
+        model.load_state_dict(ckpt)
+        vprint("legacy model with no versioning info")
+
+
+
     model.eval()
     return model, base_dataset, uci_to_index, index_to_uci
 

@@ -60,8 +60,16 @@ def train_loop(model, dataloader, optimizer, device, csv_writer, epoch, global_s
             log_buffer.clear()
 
         if batch_idx > 0 and batch_idx % save_every == 0:
-            ckpt_path = os.path.join(checkpoints_dir, f"model_epoch{epoch}_batch{batch_idx}_{git_version}.pth")
-            torch.save(model.state_dict(), ckpt_path)
+            ckpt_path = os.path.join(checkpoints_dir, f"model_epoch{epoch}_batch{batch_idx}.pth")
+
+            torch.save({
+                'model_state_dict': model.state_dict(),
+                'git_version': model.git_version,
+                'model_version': model.model_version,
+                'epoch': epoch,
+                'global_step': global_step
+            }, ckpt_path)
+
             print(f"Saved checkpoint to: {ckpt_path}")
 
     # Flush remaining logs after epoch
@@ -127,7 +135,15 @@ def main():
             )
 
     final_path = os.path.join(data_dir, "minimal_transformer_final.pth")
-    torch.save(model.state_dict(), final_path)
+
+    torch.save({
+        'model_state_dict': model.state_dict(),
+        'git_version': model.git_version,
+        'model_version': model.model_version,
+        'epoch': epoch,
+        'global_step': global_step
+        }, final_path)
+
     print(f"Timestamp: {timestamp}")
     print(f"Training log saved to: {csv_path}")
     print(f"Saved final model to: {final_path}")

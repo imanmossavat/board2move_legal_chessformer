@@ -23,7 +23,16 @@ base_dataset = ChessMoveDataset(pgn_path, epsilon=0.001, include_board= True)
 move_vocab_size = len(base_dataset.uci_to_index)
 
 model = MinimalChessTransformer(num_classes=move_vocab_size, device=device).to(device)
-model.load_state_dict(torch.load(checkpoint_path, map_location=device))
+
+ckpt = torch.load(checkpoint_path, map_location=device)
+if isinstance(ckpt, dict) and "model_state_dict" in ckpt:
+    model.load_state_dict(ckpt['model_state_dict'])
+    print(f"Model version: {ckpt['model_version']}, Git commit: {ckpt['git_version']}")
+else:
+    model.load_state_dict(ckpt)
+    print("legacy model with no versioning info")
+
+
 model.eval()
 
 dataset = iter(base_dataset)  # raw iterator without shuffling
