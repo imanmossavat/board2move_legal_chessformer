@@ -16,6 +16,12 @@ import torch.nn.functional as F
 import os
 import csv
 from datetime import datetime
+import subprocess
+
+def get_git_commit():
+    return subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).decode("ascii").strip()
+
+git_version = f"{get_git_commit()}"
 
 def train_loop(model, dataloader, optimizer, device, csv_writer, epoch, global_step, save_every=5000, data_dir=None):
     model.train()
@@ -54,7 +60,7 @@ def train_loop(model, dataloader, optimizer, device, csv_writer, epoch, global_s
             log_buffer.clear()
 
         if batch_idx > 0 and batch_idx % save_every == 0:
-            ckpt_path = os.path.join(checkpoints_dir, f"model_epoch{epoch}_batch{batch_idx}.pth")
+            ckpt_path = os.path.join(checkpoints_dir, f"model_epoch{epoch}_batch{batch_idx}_{git_version}.pth")
             torch.save(model.state_dict(), ckpt_path)
             print(f"Saved checkpoint to: {ckpt_path}")
 
@@ -91,7 +97,7 @@ def main():
         pin_memory=True
     )
 
-    model = MinimalChessTransformer(num_classes=num_classes, device=device)
+    model = MinimalChessTransformer(num_classes=num_classes, device=device, git_version= git_version)
     model.to(device)
     print(model)
 

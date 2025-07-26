@@ -4,6 +4,8 @@ import torch.nn as nn
 from core.positional_encoding import get_or_generate_encoding
 from core.move_vocab_builder import load_or_build_vocab
 
+
+
 class MinimalChessTransformer(nn.Module):
     """
 A Transformer-based chess move predictor using a single shared affine‑bilinear interaction.
@@ -43,7 +45,6 @@ Args:
     proj_dim (int):    Dimension of per-square features before appending 1.
     num_classes (int): Total moves in the vocabulary (e.g. 1968).
 """
-
     def __init__(
         self,
         input_dim=13,
@@ -52,10 +53,14 @@ Args:
         num_heads=8,
         proj_dim=89,
         num_classes=1968,
-        device='cuda'
+        device='cuda',
+        git_version= None,
+        model_version = f"v1.0.0"
     ):
         super().__init__()
         self.device = device
+        self.git_version= git_version
+        self.model_version= model_version
 
         # 1. Transformer encoder
         self.embedding = nn.Linear(input_dim, hidden_dim)
