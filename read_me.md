@@ -26,7 +26,8 @@ Defines `MinimalChessTransformer`, a transformer encoder architecture for chess 
 
 * Embeds board features.
 * Uses positional encodings.
-* Uses a bi-linear form to model interactions between squares of from- and to- squares.
+* Uses a bi-linear form to model interactions between squares of from- and to- squares. Also a learns a dedicated [CLS] token (no positional encoding) and use it for logits
+
 * Outputs logits over the entire move vocabulary.
 
 ---

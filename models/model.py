@@ -10,9 +10,16 @@ class MinimalChessTransformer(nn.Module):
     """
 A Transformer-based chess move predictor using a single shared affine‑bilinear interaction.
 
+0. CLS Token & Logit Bias
+   - Learn a dedicated [CLS] token (no positional encoding).
+   - After the Transformer, use the CLS token output to compute
+     an additional bias term on the final move logits via a learned
+     linear layer.
+
 1. Embedding & Transformer
    - Embed each of the 64 squares (input_dim → hidden_dim).
-   - Add fixed positional encodings.
+   - Add fixed positional encodings to the squares.
+   - Prepend the learned CLS token to the sequence.
    - Process through TransformerEncoder layers for global context.
 
 2. Square Feature Projection
@@ -44,7 +51,7 @@ Args:
     num_heads (int):   Number of attention heads.
     proj_dim (int):    Dimension of per-square features before appending 1.
     num_classes (int): Total moves in the vocabulary (e.g. 1968).
-"""
+    """
     def __init__(
         self,
         input_dim=13,
@@ -55,12 +62,15 @@ Args:
         num_classes=1968,
         device='cuda',
         git_version= None,
-        model_version = f"v1.0.0"
+        model_version = f"v1.0.1" # CLS token introduced
     ):
         super().__init__()
         self.device = device
         self.git_version= git_version
         self.model_version= model_version
+
+        # CLS token (learned, no positional encoding)
+        self.cls_token = nn.Parameter(torch.randn(1, 1, hidden_dim))  # shape: (1, 1, H)
 
         # 1. Transformer encoder
         self.embedding = nn.Linear(input_dim, hidden_dim)
@@ -84,30 +94,43 @@ Args:
         # 4. Affine‑bilinear weight matrix of size (proj_dim+1)×(proj_dim+1)
         self.W_aug = nn.Parameter(torch.randn(proj_dim+1, proj_dim+1))
 
-    def forward(self, board_tensor):  # board_tensor: (B, 64, input_dim)
+        self.cls_to_logit_bias = nn.Linear(hidden_dim, num_classes)
+
+
+    def forward(self, board_tensor):  # (B, 64, input_dim)
         B = board_tensor.size(0)
 
-        # 1. Encode
-        x = self.embedding(board_tensor)                   # (B, 64, H)
-        x = x + self.positional_encoding.unsqueeze(0)      # (B, 64, H)
-        x = self.transformer(x)                            # (B, 64, H)
+        x = self.embedding(board_tensor)  # (B, 64, H)
 
-        # 2. Project to proj_dim
-        sq = self.square_proj(x)                           # (B, 64, M)
+        # Add positional encoding to 64 squares only
+        x = x + self.positional_encoding.unsqueeze(0)  # (B, 64, H)
 
-        # 3. Gather u, v for each move
-        u = sq[:, self.from_ids, :]                        # (B, C, M)
-        v = sq[:, self.to_ids,   :]                        # (B, C, M)
+        # Prepend [CLS] token (broadcast to batch)
+        cls = self.cls_token.expand(B, -1, -1)  # (B, 1, H)
+        x = torch.cat([cls, x], dim=1)  # (B, 65, H)
 
-        # 4. Augment with constant 1
-        ones = u.new_ones(B, u.size(1), 1)                 # (B, C, 1), C= 1968
-        u_aug = torch.cat([u, ones], dim=-1)               # (B, C, M+1)
-        v_aug = torch.cat([v, ones], dim=-1)               # (B, C, M+1)
+        # Transformer
+        x = self.transformer(x)  # (B, 65, H)
+        cls_out = x[:, 0, :]     # (B, H) — the [CLS] token output
+        sq = x[:, 1:, :]         # (B, 64, H)
 
-        # 5. Affine‑bilinear: u'ᵀ W' v'
-        #   first: (B,C,M+1) @ (M+1,M+1) → (B,C,M+1)
+        # Project squares
+        sq_proj = self.square_proj(sq)  # (B, 64, M)
+
+        # Gather from/to features
+        u = sq_proj[:, self.from_ids, :]  # (B, C, M)
+        v = sq_proj[:, self.to_ids, :]    # (B, C, M)
+
+        # Append 1 to each vector
+        ones = u.new_ones(B, u.size(1), 1)  # (B, C, 1)
+        u_aug = torch.cat([u, ones], dim=-1)
+        v_aug = torch.cat([v, ones], dim=-1)
+
+        # Bilinear interaction
         uW = torch.einsum("bcm,mn->bcn", u_aug, self.W_aug)
-        #   then dot with v_aug: elementwise * sum over last dim
-        logits = (uW * v_aug).sum(dim=-1)                  # (B, C)
+        logits = (uW * v_aug).sum(dim=-1)  # (B, C)
+
+        # Optional: add [CLS]-based logit bias
+        logits = logits + self.cls_to_logit_bias(cls_out)  # (B, C)
 
         return logits
